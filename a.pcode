@@ -1,0 +1,5 @@
+LIT 0 1
+LIT 0 2
+JMP 0 4
+WRT 0 0
+WRT 0 0
