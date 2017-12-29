@@ -9,7 +9,7 @@ from Lexer.AbstractLexer import AbstractLexer
 from DataStruct.Tree import TreeNode
 from DataStruct import SyntaxTree
 from CompilerException import LexerException
-
+from CompilerException import SyntaxException
 from VM.PCode import PCodeVM
 class RecursiveParser(AbstractParser):
 
@@ -36,9 +36,7 @@ class RecursiveParser(AbstractParser):
         self.token = self.lexer.forward()
         try:
             anal_tree, syntax_tree = self.程序()
-            anal_tree.print('')
-            print("!!!!!!!")
-            syntax_tree.print()
+            return anal_tree, syntax_tree
         except LexerException as ex:
             print(ex)
             print(source.split('\n')[ex.line_index - 1])
@@ -58,6 +56,15 @@ class RecursiveParser(AbstractParser):
             self.token = self.lexer.forward()
             sub_tree.child = child_tree
             return sub_tree, syntax_tree
+        else:
+            if self.lexer.hasnext():
+                statement = self.lexer.statement.split('\n')
+                pos_str = "{}\n{}".format(statement[self.lexer.line_index -1 ], " "*(self.lexer.character_index-2) )
+                pos_str += '^'
+                invalid_str = 'invalid character "{}"'.format(self.token.value)
+                raise SyntaxException("{}\n{}".format(invalid_str, pos_str))
+            else:
+                raise SyntaxException("{}".format('unexpected EOF!'))
 
     def 分程序(self):
         sub_tree = TreeNode('<分程序>')
@@ -456,7 +463,6 @@ class RecursiveParser(AbstractParser):
             self.token = self.lexer.forward()
             ast_args = self.rw_arg(child_tree)
             syntax_tree = SyntaxTree.IOStatement(io_type, ast_args)
-            syntax_tree.print()
             return sub_tree, syntax_tree
 
     def 写语句(self):
@@ -468,7 +474,6 @@ class RecursiveParser(AbstractParser):
             self.token = self.lexer.forward()
             ast_args = self.rw_arg(child_tree)
             syntax_tree = SyntaxTree.IOStatement(io_type, ast_args)
-            syntax_tree.print()
             return sub_tree, syntax_tree
     
     

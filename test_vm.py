@@ -23,16 +23,17 @@ def main(arg):
     else:
         for file_name in arg.files:
             if file_name is not None and path.exists(file_name):
-                from_file(file_name)
+                from_file(arg, file_name)
 
 
-def from_file(file_name: str):
+def from_file(arg, file_name: str):
     file_content = ""
     file = open(file_name)
     lines = file.readlines()
+    print(arg.verbose)
     print("\n"*4)        
     print("test for PCode VM")
-    vm = PCodeVM(verbose=True)
+    vm = PCodeVM(verbose=arg.verbose)
     instructs = []
     for line in lines:
         instructs.append(line.split()[:3])
@@ -67,4 +68,5 @@ def from_console(grammer:str=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='compiler for PL0(i don\'t know what it is.)')
     parser.add_argument("files", type=str, nargs='*', default=[], help='input file', metavar="filename")
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, help='be verbose or not')
     main(parser.parse_args())

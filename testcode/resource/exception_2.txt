@@ -1,0 +1,26 @@
+const a=27,b=45;
+var x,absresult;
+procedure abs;
+    var temp,keepx,keepy;
+    procedure swap;
+        begin
+            temp := keepx ;
+            keepx :=keepy;
+            keepy:=temp
+        end;
+    begin
+        keepx :=x;
+        keepy :=y;
+        if keepx <keepy then
+            call swap;
+        absresult = keepx-keepy
+    end;
+begin
+    x:=a;
+    y:=b;
+    call abs 
+    write(absresult);
+    read(x,a);
+    call abs;
+    write(absresult)
+end.

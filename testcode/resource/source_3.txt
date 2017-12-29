@@ -1,0 +1,22 @@
+procedure test;
+    const a2a = 21111111;
+    var keep1;
+    procedure recurrence;
+    begin
+        if keep1<10 then
+        begin
+            if keep1 = 5 then
+                write(keep1)
+            else
+                write(a2a);
+                keep1 := keep1+1;
+            call recurrence
+        end
+    end;
+    begin
+        keep1 :=1;
+        call recurrence
+    end;
+begin
+    call test
+end.

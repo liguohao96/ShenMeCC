@@ -1,0 +1,36 @@
+const true =1, false =0;
+var time;
+begin
+    begin
+        time := 2;
+        if time = 1 then
+            write(false)
+        else
+            write(true);
+        repeat
+            time:=time+1;
+            time:=time+2
+        until time>10;
+        if odd time then
+            write(true)
+        else
+            write(false);
+        time := 10;
+        if time <>10 then
+            write(false)
+        else
+            write(true);
+        if time >=10 then
+            write(true)
+        else
+            write(false);
+        if time <=10 then
+            write(true)
+        else
+            write(false);
+        if time <10 then
+            write(false)
+        else
+            write(true)
+    end
+end.

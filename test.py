@@ -10,6 +10,7 @@ from Parser.PL0 import RecursiveParser as PL0Parser
 import argparse
 
 from VM import PCodeVM
+from VM import PCodeGener
 
 PL0Compiler = [PL0Lexer, PL0Parser]
 
@@ -32,15 +33,9 @@ def main(arg):
     else:
         for file_name in arg.files:
             if file_name is not None and path.exists(file_name):
-                from_file(file_name, grammer=grammer_str)
+                from_file(arg, file_name, grammer=grammer_str)
 
-    
-    print("\n"*4)        
-    print("test for PCode VM")
-    vm = PCodeVM(verbose=True)
-    vm(('push', 1), ('push', 2))
-
-def from_file(file_name: str, grammer:str=None):
+def from_file(arg, file_name: str, grammer:str=None):
     file_content = ""
     lexer = PL0Lexer()
     parser = PL0Parser(lexer)
@@ -50,23 +45,13 @@ def from_file(file_name: str, grammer:str=None):
     lines = file.readlines()
     for line in lines:
         file_content += line
-    parser.parse(file_content)
-    # print(lexer.statement)
-    # print("{:8}|{:10}|{:>10}".format("单词", "类别", "值"))
-    # while lexer.hasnext():
-    #     try:
-    #         ret = lexer.scan()
-    #         if ret is not None:
-    #             print("{0[0]:10}|{0[1]:12}|{0[2]:>10}".format(ret.to_tuple()))
-    #     except LexerException as ex:
-    #         lexer.peek = lexer.next_character_safe()
-    #         print(ex)
-    #         print(lines[ex.line_index - 1], end='')
-    #         point_str = ""
-    #         for i in range(ex.character_index - 1):
-    #             point_str += "-"
-    #         point_str += "^"
-    #         print(point_str)
+    anal_tree, syntax_tree = parser.parse(file_content)
+    
+    codegener = PCodeGener()
+    code = codegener(syntax_tree)
+    print(code)
+    vm = PCodeVM(debug=arg.debug)
+    vm(*code)
 
 
 def from_console(grammer:str=None):
@@ -98,4 +83,5 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='compiler for PL0(i don\'t know what it is.)')
     parser.add_argument("files", type=str, nargs='*', default=[], help='input file', metavar="filename")
     parser.add_argument("-g", "--grammer", type=str, default=None, help="grammer file")
+    parser.add_argument("-d", "--debug", action="store_true", default=False, help="run the VM at debug mode")
     main(parser.parse_args())

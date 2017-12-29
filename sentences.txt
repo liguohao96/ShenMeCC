@@ -10,16 +10,6 @@ procedure p2;
     x:=1+2*3+1;
     end
 ;
-procedure p2;
-    begin
-    x:=1+2*3+1;
-    end
-;
-procedure p2;
-    begin
-    x:=1+2*3+1;
-    end
-;
 begin
     while odd x+1 do
         repeat

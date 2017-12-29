@@ -9,9 +9,11 @@ class PCodeVM(AbstractVM):
         self.verbose = False
         if 'verbose' in keywords:
             self.verbose = keywords['verbose']
+        if 'debug' in keywords:
+            self.debug = keywords['debug']
         self.stack = []
         self.ebp = 0
-        self.esp = 0
+        self.esp = -1
         self.call_table = {
             'LIT': self.LIT,
             'OPR': self.OPR,
@@ -24,55 +26,195 @@ class PCodeVM(AbstractVM):
             'RED': self.READ,
             'WRT': self.WRITE
         }
+        self.oprand_table = {
+            0:self.ret,
+            1:self.opposit,
+            2:self.dual_op_func_generator('+'),  # +
+            3:self.dual_op_func_generator('-'),  # -
+            4:self.dual_op_func_generator('*'),  # *
+            5:self.dual_op_func_generator('/'),  # /
+            6:self.odd,                          # if stack top is odd
+            7:self.dual_cmp_func_generator('=='),   # ==
+            8:self.dual_cmp_func_generator('!='),   # !=
+            9:self.dual_cmp_func_generator('<'),   # <
+            10:self.dual_cmp_func_generator('>='),   # stack[-2] >= stack[-1]
+            11:self.dual_cmp_func_generator('>'),   # stack[-2] > stack[-1]
+            12:self.dual_cmp_func_generator('<='),   # <=
+        }
         self.initialize()
 
+    def dual_op_func_generator(self, oprand):
+        def func():
+            op2 = self.pop() # stack top
+            op1 = self.pop() # stack sub top
+            exec('self.push( op1 {} op2 )'.format(oprand))
+            self.last_operand = "{} {} {} -> {}".format(op1, oprand, op2, self.stack[-1])
+            self.eip = self.eip + 1
+            # self.push(ret)
+        return func
+
+    def dual_cmp_func_generator(self, oprand):
+        def func():
+            op2 = self.pop() # stack top
+            op1 = self.pop() # stack sub top
+            exec('self.push( 0 if op1 {} op2 else 1)'.format(oprand))
+            self.last_operand = "{} {} {} -> {}".format(op1, oprand, op2, self.stack[-1])
+            self.eip = self.eip + 1
+            # self.push(ret)
+        return func
+    
+    def gt(self):
+        op2 = self.pop()
+        op1 = self.pop()
+        self.push( 0 if op1 > op2 else 1)
+        self.eip = self.eip + 1
+    
+    def odd(self):
+        # test if the stack top is odd(1,3,5)
+        self.stack[self.esp] = (self.stack[self.esp] + 1) % 2
+        self.eip = self.eip + 1
+
+    def opposit(self):
+        self.stack[self.esp] = - self.stack[self.esp]
+        self.eip = self.eip + 1
+
+    def ret(self):
+        # ret_addr = self.stack[self.ebp + 2]
+        self.esp = self.ebp + 2
+        self.stack = self.stack[:self.ebp + 3]
+        self.eip = self.pop() # pop out RA
+        self.ebp = self.pop() # pop out DL
+        self.pop() # pop out SL
+
+    def pos(self, level, offset):
+        static_chain = self.ebp
+        level, offset = int(level), int(offset)
+        # print("SL {}|level {} |offset {}".format(static_chain, level, offset))
+        for i in range(level):
+            # print(static_chain)
+            static_chain = self.stack[static_chain]
+        static_chain += 3
+        pos = static_chain + offset
+        return pos
+
+    def pop(self):
+        ret = self.stack[self.esp]
+        self.stack = self.stack[:self.esp]
+        # little bit trick, notice that
+        # [1, 2, 3][:2] = [1, 2]
+        self.esp -= 1
+        return ret
+        
+    def push(self, data):
+        self.stack.append(data)
+        self.esp += 1
+
     def LIT(self, instruct):
+        # (LIT, 0, data)
+        # push data into stack
         if int(instruct[1]) == 0:
-            self.stack.append(int(instruct[2]))
+            self.push(int(instruct[2]))
         self.eip = self.eip + 1
 
     def OPR(self, instruct):
-        self.eip = self.eip + 1
+        # (OPR, 0, operand_code)
+        if int(instruct[1]) == 0:
+            self.oprand_table[int(instruct[2])]()
 
     def LOAD(self, instruct):
+        # (LOD, level, offset)
+        # push SL(level)+offset into stack
+        pos = self.pos(*instruct[1:])
+        self.push(self.stack[pos])
         self.eip = self.eip + 1
 
     def STORE(self, instruct):
+        # (STO, level, offset)
+        # store stack top into SL(level)+offset
+        pos = self.pos(*instruct[1:])
+        # print("[{}] = [{}]".format(pos, self.esp))
+        self.stack[pos] = self.stack[self.esp] # or -1
         self.eip = self.eip + 1
+        
 
     def CALL(self, instruct):
+        # (CAL, level, abs_func_pos)
+        # call function at abs_func_pos, build SL, DL, RA in stack
+        static_chain = self.ebp
+        for i in range(int(instruct[1])):
+            static_chain = self.stack[static_chain]
+        self.stack.append(static_chain) # static chain
+        self.stack.append(self.ebp) # dynamic chain
         self.eip = self.eip + 1
+        self.stack.append(self.eip)
+        func_pos = int(instruct[2])
+        # print("[{}] code {}".format(func_pos, self.code[func_pos]))
+        # print("SL:{}|DL:{}|RA:{}".format(static_chain, self.ebp, self.eip))
+        self.ebp = self.esp + 1
+        self.esp = self.ebp + 2
+        self.eip = func_pos
 
     def INT(self, instruct):
+        # (INT, 0, x)
+        # append current stack for x times
+        if int(instruct[1]) == 0:
+            times = int(instruct[2])
+            self.stack.extend([0]*times)
+            self.esp += times
         self.eip = self.eip + 1
 
     def JUMP(self, instruct):
+        # (JMP, 0, abs_pos)
+        # jump to abs_pos of code, without condition
         if int(instruct[1]) == 0:
             self.eip = int(instruct[2])
+            # print("jump to [{}] [{}]".format(self.eip, self.code[self.eip]))
         else:
             self.eip = self.eip + 1
 
     def JUMP_CONDITION(self, instruct):
-        self.eip = self.eip + 1
+        # (JMP, 0, abs_pos)
+        # jump to abs_pos of code, only if the stack top is 0
+        if int(instruct[1]) == 0:
+            if self.stack[self.esp] == 0:
+                # jump
+                self.eip = int(instruct[2])
+            else:
+                self.eip = self.eip + 1
 
     def READ(self, instruct):
+        # (RED, level, offset)
+        # read input, store at SL(level)+offset
+        pos = self.pos(*instruct[1:])
+        # print("READ pos {}".format(pos))
+        self.stack[pos] = int(input("input>"))
         self.eip = self.eip + 1
 
     def WRITE(self, instruct):
-        print(self.stack[-1])
+        # (WRT, 0, 0)
+        # output stack top
+        print(self.stack[self.esp]) # -1 is ok for representing the last one
         self.eip = self.eip + 1
 
     def initialize(self):
-        self.code, self.stack = [], []
+        self.code, self.stack = [], [0, 0, 0]
         self.ebp = 0 # B 基地址寄存器
-        self.esp = 0 # T 栈顶寄存器
+        self.esp = 2 # T 栈顶寄存器
         self.eip = 0 # I 指令寄存器
         self.exit = False
+        self.last_operand = None
 
     def parse(self, *code):
+        # code = [ (c[0], int(c[1]), int(c[2])) for c in code]
         self.code.extend(code)
+        if self.verbose is True or self.debug is True:
+            prt_str = 'stack {}'.format(self.stack)
+            print(prt_str)
+        if self.debug is True:
+            input('n')
         while self.exit is False:
             self.single_excute()
+        print(self.stack)
         # for i in self.code:
         #     self.single_excute(instruct)
         #     if self.verbose is True:
@@ -81,10 +223,25 @@ class PCodeVM(AbstractVM):
 
     def single_excute(self):
         instruct = self.code[self.eip]
+        eip = self.eip
         oprand = instruct[0]
         self.call_table[oprand](instruct)
         self.exit = True if self.eip >= len(self.code) else False
-        if self.verbose is True:
-            prt_str = 'instruction {}\n\tstack {}'.format(instruct, self.stack)
+        if self.verbose is True or self.debug is True:
+            instruct = self.last_operand if self.last_operand is not None else instruct
+            prt_str = '\tinstruction {}: {}\nstack {}\n eip :{}'.format(eip+1, instruct, self.stack, self.eip)
+            self.last_operand = None
             print(prt_str)
-        
+        if self.debug is True:
+            ipt = input('>')
+            while len(ipt) > 0 and ipt != 'n':
+                op_code = ipt.split()[0]
+                if op_code == 'i':
+                    instruct_idx = int(ipt.split()[1])
+                    print(self.code[instruct_idx])
+                ipt = input('>')
+    
+    def core_dump(self):
+        print("core dump")
+        print("ebp:{}| esp:{}| eip:{}".format(self.ebp, self.esp, self.eip))
+        print(self.stack)
