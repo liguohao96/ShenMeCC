@@ -223,6 +223,21 @@ class OddStatement(TreeNode):
         }
         self.child = expression
 
+    def gencode(self, symbol_table, code):
+        code_start = len(code)
+        # print(type(self.dict['Expression']))
+        if isinstance(self.dict['Expression'], BinaryExpression):
+            self.dict['Expression'].gencode(symbol_table, code)
+        else:
+            name = self.dict['Expression'].data.value
+            item, level, offset = symbol_table.search(name)
+            expected = ['var', 'const']
+            if item[1] in expected:
+                code.append(('LOD', level, offset))
+            else:
+                raise SemanticException("{} get type <{}>, but expect <var> <const> in [{}]".format(name, item[1], self.data))
+        code.append(('OPR', 0, 6)) # odd operator
+        # print(code[code_start:])
 
 class BinaryExpression(TreeNode):
     def __init__(self, oprator, lhs, rhs):
@@ -238,8 +253,8 @@ class BinaryExpression(TreeNode):
         '-':('OPR', 0, 3),
         '*':('OPR', 0, 4),
         '/':('OPR', 0, 5),
-        '==':('OPR', 0, 7),
-        '!=':('OPR', 0, 8),
+        '=':('OPR', 0, 7),
+        '<>':('OPR', 0, 8), # stand for !=
         '<':('OPR', 0, 9),
         '>=':('OPR', 0, 10),
         '>':('OPR', 0, 11),
@@ -290,7 +305,6 @@ class BinaryExpression(TreeNode):
             # exit()
             node.print(indent)
 
-
 class AssignExpression(TreeNode):
     '''
     <赋值语句> ::= <标识符>:=<表达式>
@@ -316,8 +330,8 @@ class AssignExpression(TreeNode):
                 item, level, offset = symbol_table.search(self.dict['Rhs'].data.value)
                 if item[1] in ['var', 'const']:
                     code.append(('LOD', level, offset))
-            print(type(self.dict['Rhs'].data))
-            self.dict['Rhs'].print()
+            # print(type(self.dict['Rhs'].data))
+            # self.dict['Rhs'].print()
 
         level, offset = 0, 0
         table_len = len(symbol_table.block_sym)
@@ -335,6 +349,7 @@ class AssignExpression(TreeNode):
                     else:
                         raise SemanticException("get type <{}>, but expect <var> in [Assign]".format(item[1]))
         raise SemanticException('undefined reference for {}'.format(self.dict['Lhs'].data.value))
+    
     def print(self, indent=''):
         print("{}|{}".format(indent, ':='))
         if self.is_leaf() is False:
@@ -349,7 +364,6 @@ class AssignExpression(TreeNode):
             # exit()
             node.print(indent)
 
-
 class IfStatement(TreeNode):
     '''
     <条件语句> ::= if<条件>then<语句>[else<语句>]
@@ -358,14 +372,32 @@ class IfStatement(TreeNode):
     def __init__(self, condition, true_stmt, false_stmt=EmptyStatement()):
         TreeNode.__init__(self, 'IfStatement')
         self.dict = {
-            'Condition': condition,
+            'Condition': condition, # condition is a binary operator
             'TrueStatement': true_stmt,
             'FalseStatement': false_stmt
         }
-        self.child = condition
+        self.child = copy.deepcopy(condition)
         self.child.sublings.append(true_stmt)
         self.child.sublings.append(false_stmt)
 
+    def gencode(self, symbol_table, code):
+        code_start = len(code)
+        self.dict['Condition'].gencode(symbol_table, code)
+        code.append(['JPC', 0, -1])
+        backfill_jpc = len(code) - 1
+        # self.dict['FalseStatement'].print()
+        self.dict['FalseStatement'].gencode(symbol_table, code)
+        code.append(['JMP', 0, -1])
+        backfill_false_jmp = len(code) - 1
+        code[backfill_jpc][2] = len(code)
+        code[backfill_jpc] = tuple(code[backfill_jpc]) # make it read-only
+
+        self.dict['TrueStatement'].gencode(symbol_table, code)
+        code[backfill_false_jmp][2] = len(code)
+        code[backfill_false_jmp] = tuple(code[backfill_false_jmp])
+        # print(code_start)
+        # print(code[code_start:])
+        # exit()
 
 class WhileStatement(TreeNode):
     '''
@@ -381,6 +413,22 @@ class WhileStatement(TreeNode):
         self.child = condition
         self.child.sublings.append(statement)
 
+    def gencode(self, symbol_table, code):
+        code_start = len(code)
+
+        self.dict['Condition'].gencode(symbol_table, code)
+
+        code.append(('JPC', 0, len(code)+2)) # this code it self should be count in
+        code.append(['JMP', 0, -1])
+        backfill_jmp = len(code) - 1
+
+        self.dict['Statement'].gencode(symbol_table, code)
+        code.append(('JMP', 0, code_start))
+        code[backfill_jmp][2] = len(code)
+        code[backfill_jmp] = tuple(code[backfill_jmp])
+
+        # print(code_start)
+        # print(code[code_start:])
 
 class DoWhileStatement(TreeNode):
     '''
@@ -393,9 +441,17 @@ class DoWhileStatement(TreeNode):
             'Condition': condition,
             'Statement': statement
         }
-        self.child = condition
+        self.child = copy.deepcopy(condition)
         self.child.sublings.extend(statement)
-
+    
+    def gencode(self, symbol_table, code):
+        code_start = len(code)
+        for stmt in self.dict['Statement']:
+            stmt.gencode(symbol_table, code)
+        code.append(('JPC', 0, len(code) + 2))
+        code.append(('JMP', 0, code_start))
+        print(code[code_start:])
+        # exit()
 
 class CallExpression(TreeNode):
     '''

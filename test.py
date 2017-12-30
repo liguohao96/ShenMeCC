@@ -41,17 +41,23 @@ def from_file(arg, file_name: str, grammer:str=None):
     parser = PL0Parser(lexer)
     if grammer is not None:
         parser.grammer_input(grammer)
-    file = open(file_name)
+    file = open(file_name, 'r', encoding='utf-8')
     lines = file.readlines()
     for line in lines:
         file_content += line
+    print(file_content[0].encode())
     anal_tree, syntax_tree = parser.parse(file_content)
-    
-    codegener = PCodeGener()
-    code = codegener(syntax_tree)
-    print(code)
-    vm = PCodeVM(debug=arg.debug)
-    vm(*code)
+    if syntax_tree is None:
+        print('syntax error')
+    else:
+        codegener = PCodeGener()
+        code = codegener(syntax_tree)
+        print('\n'*3)
+        print(code)
+        print('\n'*2)
+        vm = PCodeVM(debug=arg.debug, verbose=arg.verbose)
+        print('vm start with config {}'.format(vm.mode))
+        vm(*code)
 
 
 def from_console(grammer:str=None):
@@ -84,4 +90,5 @@ if __name__ == '__main__':
     parser.add_argument("files", type=str, nargs='*', default=[], help='input file', metavar="filename")
     parser.add_argument("-g", "--grammer", type=str, default=None, help="grammer file")
     parser.add_argument("-d", "--debug", action="store_true", default=False, help="run the VM at debug mode")
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, help='be verbose or not')
     main(parser.parse_args())

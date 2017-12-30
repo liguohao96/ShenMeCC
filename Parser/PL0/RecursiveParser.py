@@ -39,14 +39,26 @@ class RecursiveParser(AbstractParser):
             return anal_tree, syntax_tree
         except LexerException as ex:
             print(ex)
-            print(source.split('\n')[ex.line_index - 1])
+            # print(source.split('\n')[ex.line_index - 1])
             # ex.line_index
         
         # tree = self.分程序()
         # tree.print('')
-        while self.lexer.hasnext():
-            # print("[{}/{}] {}".format(self.lexer.index, len(source), source[self.lexer.index:]))
-            pass
+        # while self.lexer.hasnext():
+        #     # print("[{}/{}] {}".format(self.lexer.index, len(source), source[self.lexer.index:]))
+        #     pass
+        return None, None
+
+    def unexpected_error(self, expected):
+        if self.lexer.hasnext():
+            statement = self.lexer.statement.split('\n')
+            pos_str = "{}\n{}".format(statement[self.lexer.line_index -1 ], " "*(self.lexer.character_index-2) )
+            pos_str += '^'
+            # invalid_str = '"then" expected, get "{}" at line {}'.format(self.token.value, self.lexer.line_index)
+            invalid_str = 'expected "{}", but get "{}", at line {}'.format(expected, self.token.value, self.lexer.line_index)
+            raise SyntaxException("{}\n{}".format(invalid_str, pos_str))
+        else:
+            raise SyntaxException('{}, missing "{}", at lien {}'.format('unexpected EOF!', expected, self.lexer.line_index))
 
     def 程序(self):
         sub_tree = TreeNode('<程序>')
@@ -57,14 +69,15 @@ class RecursiveParser(AbstractParser):
             sub_tree.child = child_tree
             return sub_tree, syntax_tree
         else:
-            if self.lexer.hasnext():
-                statement = self.lexer.statement.split('\n')
-                pos_str = "{}\n{}".format(statement[self.lexer.line_index -1 ], " "*(self.lexer.character_index-2) )
-                pos_str += '^'
-                invalid_str = 'invalid character "{}"'.format(self.token.value)
-                raise SyntaxException("{}\n{}".format(invalid_str, pos_str))
-            else:
-                raise SyntaxException("{}".format('unexpected EOF!'))
+            self.unexpected_error('.')
+            # if self.lexer.hasnext():
+            #     statement = self.lexer.statement.split('\n')
+            #     pos_str = "{}\n{}".format(statement[self.lexer.line_index -1 ], " "*(self.lexer.character_index-2) )
+            #     pos_str += '^'
+            #     invalid_str = 'invalid character "{}"'.format(self.token.value)
+            #     raise SyntaxException("{}\n{}".format(invalid_str, pos_str))
+            # else:
+            #     raise SyntaxException("{}".format('unexpected EOF!\nmissing "."'))
 
     def 分程序(self):
         sub_tree = TreeNode('<分程序>')
@@ -114,6 +127,8 @@ class RecursiveParser(AbstractParser):
                     self.token = self.lexer.forward()
                     analysis_tree.child = child_tree
                     return analysis_tree, syntax_tree
+        else:
+            self.unexpected_error('const')
 
     def 常量定义(self):
         analysis_tree = TreeNode('<常量定义>')
@@ -126,6 +141,8 @@ class RecursiveParser(AbstractParser):
             analysis_tree.child = child_tree
             syntax_tree = SyntaxTree.ConstDeclarator(syntax_indentifier, syntax_int)
             return analysis_tree, syntax_tree
+        else:
+            self.unexpected_error('const')
 
     def 无符号整数(self):
         sub_tree = TreeNode('<无符号整数>')
@@ -142,10 +159,12 @@ class RecursiveParser(AbstractParser):
             syntax_tree = TreeNode(self.token)
             self.token = self.lexer.forward()
             return sub_tree, syntax_tree
+        self.unexpected_error('identifier')
 
     def 变量说明部分(self):
         sub_tree = TreeNode('<变量说明部分>')
         variable_declarator = []
+        expected = 'var'
         if isinstance(self.token, Keyword) and self.token.value == 'var':
             child_tree = TreeNode(self.token)
             self.token = self.lexer.forward()
@@ -159,12 +178,14 @@ class RecursiveParser(AbstractParser):
                 variable_declarator.append(syntax_identifier)
                 child_tree.sublings.append(identifier)
             else:
+                expected = ';'
                 if isinstance(self.token, Delimiter) and self.token.value == ';':
                     child_tree.sublings.append(TreeNode(self.token))
                     syntax_tree = SyntaxTree.VariableDeclaration(*variable_declarator)
                     self.token = self.lexer.forward()
                     sub_tree.child = child_tree
                     return sub_tree, syntax_tree
+        self.unexpected_error(expected)
 
     def 过程说明部分(self):
         sub_tree = TreeNode('<过程说明部分>')
@@ -201,6 +222,13 @@ class RecursiveParser(AbstractParser):
                     self.token = self.lexer.forward()
                     sub_tree.child = child_tree
                     return sub_tree, ast_indetifier
+                else:
+                    self.unexpected_error(';')
+            else:
+                self.unexpected_error('identifier')
+        else:
+            self.unexpected_error('procedure')
+        
 
 
     def 语句(self):
@@ -240,6 +268,8 @@ class RecursiveParser(AbstractParser):
             sub_tree.child = child_tree
             syntax_tree = SyntaxTree.AssignExpression(ast_identifier_lhs, ast_identifier_rhs)
             return sub_tree, syntax_tree
+        else:
+            self.unexpected_error(':=')
 
     def 表达式(self):
         sub_tree = TreeNode('<表达式>')
@@ -306,6 +336,10 @@ class RecursiveParser(AbstractParser):
                 sub_tree.child = child_tree
                 self.token = self.lexer.forward()
                 return sub_tree
+            else:
+                self.unexpected_error(')')
+        else:
+            self.unexpected_error('(')
 
     def 加法运算符(self):
         sub_tree = TreeNode('<加法运算符>')
@@ -315,6 +349,10 @@ class RecursiveParser(AbstractParser):
                 self.token = self.lexer.forward()
                 sub_tree.child = child_tree
                 return sub_tree, child_tree.data.value
+            else:
+                self.unexpected_error('+ or -')
+        else:
+            self.unexpected_error('operator')
 
     def 乘法运算符(self):
         sub_tree = TreeNode('<乘法运算符>')
@@ -324,6 +362,10 @@ class RecursiveParser(AbstractParser):
                 self.token = self.lexer.forward()
                 sub_tree.child = child_tree
                 return sub_tree, child_tree.data.value
+            else:
+                self.unexpected_error('* or /')
+        else:
+            self.unexpected_error('operator')
 
     def 条件(self):
         sub_tree = TreeNode('<条件>')
@@ -352,6 +394,7 @@ class RecursiveParser(AbstractParser):
                 self.token = self.lexer.forward()
                 sub_tree.child = child_tree
                 return sub_tree, child_tree.data.value
+        self.unexpected_error('compare operator')
 
     def 条件语句(self):
         sub_tree = TreeNode('<条件语句>')
@@ -376,14 +419,26 @@ class RecursiveParser(AbstractParser):
                 sub_tree.child = child_tree
                 syntax_tree = SyntaxTree.IfStatement(ast_condition, ast_true_stmt, false_stmt=ast_false_stmt)
                 return sub_tree, syntax_tree
-
+            else:
+                if self.lexer.hasnext():
+                    statement = self.lexer.statement.split('\n')
+                    pos_str = "{}\n{}".format(statement[self.lexer.line_index -1 ], " "*(self.lexer.character_index-2) )
+                    pos_str += '^'
+                    invalid_str = '"then" expected, get "{}" at line {}'.format(self.token.value, self.lexer.line_index)
+                    raise SyntaxException("{}\n{}".format(invalid_str, pos_str))
+                else:
+                    raise SyntaxException("{}".format('unexpected EOF!'))
+        else:
+            self.unexpected_error('if')
     def 当型循环语句(self):
         sub_tree = TreeNode('<当型循环语句>')
+        expected = 'while'
         if isinstance(self.token, Keyword) and self.token.value == 'while':
             child_tree = TreeNode(self.token)
             self.token = self.lexer.forward()
             condition, ast_condition = self.条件()
             child_tree.sublings.append(condition)
+            expected = 'do'
             if isinstance(self.token, Keyword) and self.token.value == 'do':    
                 child_tree.sublings.append(TreeNode(self.token))
                 self.token = self.lexer.forward()
@@ -392,21 +447,26 @@ class RecursiveParser(AbstractParser):
                 sub_tree.child = child_tree
                 syntax_tree = SyntaxTree.WhileStatement(condition=ast_condition, statement=ast_stmt)
                 return sub_tree, syntax_tree
+        self.unexpected_error(expected)
     def 过程调用语句(self):
         sub_tree = TreeNode('<过程调用语句>')
+        expected = 'call'
         if isinstance(self.token, Keyword) and self.token.value == 'call':
             child_tree = TreeNode(self.token)
             self.token = self.lexer.forward()
             identifier, ast_identifier = self.标识符()
+            expected = 'identifier'
             if identifier is not None:
                 child_tree.sublings.append(identifier)
                 sub_tree.child = child_tree
                 syntax_tree = SyntaxTree.CallExpression(identifier=ast_identifier)
                 return sub_tree, syntax_tree
+        self.unexpected_error(expected)
 
     def 复合语句(self):
         sub_tree = TreeNode('<复合语句>')
         ast_stmt_list = []
+        expect = 'begin'
         if isinstance(self.token, Keyword) and self.token.value == 'begin':
             child_tree = TreeNode(self.token)
             self.token = self.lexer.forward()
@@ -420,16 +480,19 @@ class RecursiveParser(AbstractParser):
                 child_tree.sublings.append(statement)
                 ast_stmt_list.append(ast_stmt)
             else:
+                expect = 'end'
                 if isinstance(self.token, Keyword) and self.token.value == 'end':
                     child_tree.sublings.append(TreeNode(self.token))
                     self.token = self.lexer.forward()
                     sub_tree.child = child_tree
                     syntax_tree = SyntaxTree.BlockStatement(*ast_stmt_list)
                     return sub_tree, syntax_tree
+        self.unexpected_error(expect)
 
     def 重复语句(self):
         sub_tree = TreeNode('<重复语句>')
         stmt_list = []
+        expected = 'repeat'
         if isinstance(self.token, Keyword) and self.token.value == 'repeat':
             child_tree = TreeNode(self.token)
             self.token = self.lexer.forward()
@@ -443,6 +506,7 @@ class RecursiveParser(AbstractParser):
                 stmt_list.append(ast_statement)
                 child_tree.sublings.append(statement)
             else:
+                expected = 'until'
                 if isinstance(self.token, Keyword) and self.token.value == 'until':
                     child_tree.sublings.append(TreeNode(self.token))
                     self.token = self.lexer.forward()
@@ -452,7 +516,7 @@ class RecursiveParser(AbstractParser):
                     syntax_tree = SyntaxTree.DoWhileStatement(condition=ast_condition, statement=stmt_list)
 
                     return sub_tree, syntax_tree
-        #return sub_tree
+        self.unexpected_error(expected)
 
     def 读语句(self):
         sub_tree = TreeNode('<读语句>')
@@ -475,6 +539,8 @@ class RecursiveParser(AbstractParser):
             ast_args = self.rw_arg(child_tree)
             syntax_tree = SyntaxTree.IOStatement(io_type, ast_args)
             return sub_tree, syntax_tree
+        else:
+            self.unexpected_error('write')
     
     
     def 数字(self):
@@ -486,6 +552,7 @@ class RecursiveParser(AbstractParser):
     def narg(self, child_tree, function):
         identifier, ast_identifier = function()
         args_list = []
+        expected = 'identifier'
         if identifier is not None:
             args_list.append(ast_identifier)
             child_tree.sublings.append(identifier)
@@ -498,16 +565,22 @@ class RecursiveParser(AbstractParser):
                 if identifier is not None:
                     child_tree.sublings.append(identifier)
                     args_list.append(ast_identifier)
+                else:
+                    break
             else:
                 return args_list
+        self.unexpected_error(expected)
 
     def rw_arg(self, child_tree):
+        expected = '('
         if isinstance(self.token, Delimiter) and self.token.value == '(':
             child_tree.sublings.append(TreeNode(self.token))
             self.token = self.lexer.forward()
             args_list = self.narg(child_tree, self.标识符)
+            expected = ')'
             if isinstance(self.token, Delimiter) and self.token.value == ')':
                 child_tree.sublings.append(TreeNode(self.token))
                 self.token = self.lexer.forward()
                 syntax_tree = SyntaxTree.Arguments(*args_list)
                 return syntax_tree
+        self.unexpected_error(expected)

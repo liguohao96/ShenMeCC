@@ -2,3 +2,4 @@ from __future__ import absolute_import, print_function
 from CompilerException.Exception import LexerException
 from CompilerException.Exception import SyntaxException
 from CompilerException.Exception import SemanticException
+from CompilerException.Exception import RuntimeException

@@ -166,10 +166,10 @@ class SimpleLexer(AbstractLexer):
                         self.go_back()
                 self.sym = self.sym[-1]
                 return Int(num)
-            elif str.isalpha(self.peek):
+            elif str.isalpha(self.peek) or is_chinese(self.peek):
                 name = self.peek
                 self.peek = self.next_character_safe()
-                while str.isalpha(self.peek) or str.isdigit(self.peek):
+                while str.isalpha(self.peek) or str.isdigit(self.peek) or is_chinese(self.peek):
                     name += self.peek
                     self.peek = self.next_character_safe()
                 self.sym = self.sym[-1]
@@ -205,6 +205,10 @@ class SimpleLexer(AbstractLexer):
             character_index += self.line_character_count[i]
         display_len = 10 if character_index + \
             10 < len(self.statement) else len(self.statement) - character_index
+        for i in range(character_index, len(self.statement)):
+            if self.statement[i] == '\n':
+                display_len  = i - character_index
+                break
         error_str = "Error at {0.line_index}:{0.character_index}\n".format(
             self)
         error_str += self.statement[character_index:character_index + display_len]
@@ -212,5 +216,15 @@ class SimpleLexer(AbstractLexer):
         for i in range(self.character_index - 1):
             error_str += "-"
         error_str += "^"
+        # print(error_str)
         # raise Exception("Error at {0.line_index}:{0.character_index}".format(self))
-        raise LexerException(self.line_index, self.character_index)
+        raise LexerException(error_str, self.line_index, self.character_index)
+
+def is_chinese(uchar):
+    '''
+    test if a utf8 character is a chinese character
+    '''
+    if uchar >= u'/u4e00' and uchar<=u'/u9fa5':
+        return True
+    else:
+        return False

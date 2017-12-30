@@ -13,8 +13,10 @@ begin
     x:=a;
     y:=b;
     call mod;
-    while x <>0 do
+    write(x, y);
+    while x <> 0 do
         begin
+            write(x, y);
             call swap;
             call mod
         end;

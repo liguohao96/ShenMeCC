@@ -1,16 +1,17 @@
 from __future__ import absolute_import, print_function
 from VM.AbstratVM import AbstractVM
 from VM.PCode import PCodeVM
+from CompilerException import RuntimeException
 
 
 class PCodeVM(AbstractVM):
     def __init__(self, **keywords):
         AbstractVM.__init__(self)
-        self.verbose = False
-        if 'verbose' in keywords:
-            self.verbose = keywords['verbose']
-        if 'debug' in keywords:
-            self.debug = keywords['debug']
+        self.mode = {
+            'debug':keywords['debug'] if 'debug' in keywords else False,
+            'verbose':keywords['verbose'] if 'verbose' in keywords else False,
+            'break_point':-1
+        }
         self.stack = []
         self.ebp = 0
         self.esp = -1
@@ -41,14 +42,19 @@ class PCodeVM(AbstractVM):
             11:self.dual_cmp_func_generator('>'),   # stack[-2] > stack[-1]
             12:self.dual_cmp_func_generator('<='),   # <=
         }
+        self.alias_table={
+            'ebp':['ebp', 'B'],
+            'esp':['esp', 'T'],
+            'eip':['eip', 'P']
+        }
         self.initialize()
 
     def dual_op_func_generator(self, oprand):
         def func():
             op2 = self.pop() # stack top
             op1 = self.pop() # stack sub top
-            exec('self.push( op1 {} op2 )'.format(oprand))
-            self.last_operand = "{} {} {} -> {}".format(op1, oprand, op2, self.stack[-1])
+            exec('self.push( int(op1 {} op2) )'.format(oprand))
+            self.instruct_human = "{} {} {} -> {}".format(op1, oprand, op2, self.stack[-1])
             self.eip = self.eip + 1
             # self.push(ret)
         return func
@@ -58,7 +64,7 @@ class PCodeVM(AbstractVM):
             op2 = self.pop() # stack top
             op1 = self.pop() # stack sub top
             exec('self.push( 0 if op1 {} op2 else 1)'.format(oprand))
-            self.last_operand = "{} {} {} -> {}".format(op1, oprand, op2, self.stack[-1])
+            self.instruct_human = "{} {} {} -> {}".format(op1, oprand, op2, self.stack[-1])
             self.eip = self.eip + 1
             # self.push(ret)
         return func
@@ -186,8 +192,19 @@ class PCodeVM(AbstractVM):
         # (RED, level, offset)
         # read input, store at SL(level)+offset
         pos = self.pos(*instruct[1:])
+        if 0 <= pos < len(self.stack):
+            pass
+        else:
+            self.panic('try to read at {}'.format(pos))
         # print("READ pos {}".format(pos))
-        self.stack[pos] = int(input("input>"))
+        read_done = False
+        while read_done is False:
+            ipt = input("input>")
+            try:
+                self.stack[pos] = int(ipt)
+                read_done = True
+            except:
+                pass
         self.eip = self.eip + 1
 
     def WRITE(self, instruct):
@@ -201,45 +218,125 @@ class PCodeVM(AbstractVM):
         self.ebp = 0 # B 基地址寄存器
         self.esp = 2 # T 栈顶寄存器
         self.eip = 0 # I 指令寄存器
+        self.mode['break_point'] = -1
         self.exit = False
-        self.last_operand = None
+        self.instruct_human = None
+
+    def panic(self, panic_msg):
+        raise RuntimeException(panic_msg)
+
+    def print_stack(self, pos=None):
+        if pos is not None:
+            print('stack[{}] is [{}]'.format(pos, self.stack[pos]))
+        else:
+            stack_str = ""
+            pos_index = {}
+            pos_each = 5
+            for i in range(len(self.stack)):
+                if i%pos_each == 0:
+                    pos_index[len(stack_str)] = str(i)
+                if i == self.ebp:
+                    pos_index[len(stack_str)] = "B"
+                if i == self.esp:
+                    pos_index[len(stack_str)] = "T"
+            # pos_index[self.esp] = 'T'
+                stack_str += "|{}".format(self.stack[i])
+            index = 0
+            i = 0
+            header = ""
+            while index < len(stack_str):
+                if index in pos_index:
+                    num_str = pos_index[index]
+                    header += num_str
+                    # print(num_str, end='')
+                    index += len(num_str)
+                else:
+                    header += " "
+                    # print(" ", end='')
+                    index += 1
+            # print()
+            header_str = " "
+            for c in header:
+                header_str += "\u0332{}".format(c)
+            # print("_"*len(stack_str))
+            print(header_str)
+            print(stack_str)
+            print(" \u0305"*len(stack_str))
+            # print('x\u0305\u0332x\u0305\u0332x\u0305\u0332x\u0332')
+            # print("1\u0305\u0332")
+            
+
+    def command_promt(self, *done_str):
+        ipt = input('>')
+        while ipt not in done_str:
+            try:
+                ipt_splited = ipt.split()
+                op_code = ipt_splited[0]
+                if op_code == 'i':
+                    instruct_idx = int(ipt.split()[1])
+                    print(self.code[instruct_idx])
+                if op_code == 'b':
+                    instruct_idx = int(ipt.split()[1])
+                    self.mode['break_point'] = instruct_idx
+                if op_code == 'mode':
+                    name = ipt.split()[1]
+                    print('{}:{}'.format(name, self.mode[name]))
+                if op_code == 'stack':
+                    pos = int(ipt_splited[1]) if len(ipt_splited) >= 2 else None
+                    self.print_stack(pos)
+                if op_code == 'exit':
+                    exit()
+                if op_code in self.alias_table['ebp']:
+                    print("{}: {}".format(op_code, self.ebp))
+                if op_code in self.alias_table['esp']:
+                    print("{}: {}".format(op_code, self.esp))
+                if op_code in self.alias_table['eip']:
+                    print("{}: {}".format(op_code, self.eip))
+                if op_code in self.call_table:
+                    if len(ipt.split()) >= 3:
+                        self.instruct_excute(ipt.split()[:3])
+            except Exception as ex:
+                pass
+            ipt = input('>')
 
     def parse(self, *code):
         # code = [ (c[0], int(c[1]), int(c[2])) for c in code]
         self.code.extend(code)
-        if self.verbose is True or self.debug is True:
+        if self.mode['verbose'] is True or self.mode['debug'] is True:
             prt_str = 'stack {}'.format(self.stack)
             print(prt_str)
-        if self.debug is True:
-            input('n')
+        if self.mode['debug'] is True:
+            self.command_promt('r')
+            self.mode['debug'] = False
         while self.exit is False:
-            self.single_excute()
-        print(self.stack)
+            if self.eip == self.mode['break_point']:
+                self.mode['debug'] = True
+            
+            instruct = self.code[self.eip]
+            eip = self.eip
+            if self.mode['verbose'] is True or self.mode['debug'] is True:
+                print_instruct = self.instruct_human if self.instruct_human is not None else instruct
+                prt_str = '\tinstruction {}: {}\nstack {}\n eip :{}'.format(eip+1, print_instruct, self.stack, self.eip)
+                self.instruct_human = None
+                print(prt_str)
+            if self.mode['debug'] is True:
+                self.command_promt('n', '')
+
+            self.instruct_excute(instruct)
+
+            self.exit = True if self.eip >= len(self.code) else False
+            
+            # print(self.stack)
         # for i in self.code:
         #     self.single_excute(instruct)
         #     if self.verbose is True:
         #         prt_str = 'instruction {}\n\tstack {}'.format(instruct, self.stack)
         #         print(prt_str)
 
-    def single_excute(self):
-        instruct = self.code[self.eip]
-        eip = self.eip
+    def instruct_excute(self, instruct):
         oprand = instruct[0]
         self.call_table[oprand](instruct)
-        self.exit = True if self.eip >= len(self.code) else False
-        if self.verbose is True or self.debug is True:
-            instruct = self.last_operand if self.last_operand is not None else instruct
-            prt_str = '\tinstruction {}: {}\nstack {}\n eip :{}'.format(eip+1, instruct, self.stack, self.eip)
-            self.last_operand = None
-            print(prt_str)
-        if self.debug is True:
-            ipt = input('>')
-            while len(ipt) > 0 and ipt != 'n':
-                op_code = ipt.split()[0]
-                if op_code == 'i':
-                    instruct_idx = int(ipt.split()[1])
-                    print(self.code[instruct_idx])
-                ipt = input('>')
+        
     
     def core_dump(self):
         print("core dump")
