@@ -70,13 +70,15 @@ class ConstDeclaration(TreeNode):
             self.child.sublings.extend(args)
 
     def gencode(self, symbol_table, code):
+        code_start = len(code)
         const_decls = self.dict['Declarations']
         for i, item in enumerate(const_decls):
             name = item.dict['Identifier'].data.value
             value = item.dict['Number'].data.value
-            symbol_table.block_sym[-1].append((name, 'const', value))
+            ret = symbol_table.insert((name, 'const', value))
             instruct = ('LIT', 0, value)
             code.append(instruct)
+
 
 class ConstDeclarator(TreeNode):
     def __init__(self, identifier, number):
@@ -116,9 +118,10 @@ class VariableDeclaration(TreeNode):
 
     def gencode(self, symbol_table, code):
         var_decls = self.dict['Declarations']
+        code_start = len(code)
         for i, item in enumerate(var_decls):
             name = item.data.value
-            symbol_table.block_sym[-1].append((name, 'var', None))
+            ret = symbol_table.insert((name, 'var', None))
             instruct = ('LIT', 0, 0)
             code.append(instruct)
 
@@ -168,13 +171,13 @@ class ProcDeclaration(TreeNode):
             self.child.sublings.extend(args[1:])
     
     def gencode(self, symbol_table, code):
+        code_start = len(code)
         proc_decls = self.dict['Declarations']
         for i, item in enumerate(proc_decls):
             name = item.dict['ProcHead'].data.value
-            symbol_table.block_sym[-1].append((name, 'proc', len(code)))
+            ret = symbol_table.insert((name, 'proc', len(code)))
             # the first statement is the next one
             item.gencode(symbol_table, code)
-            # code.append(('OPR', 0, 0))
 
 class ProcDeclarator(TreeNode):
     def __init__(self, ast_proc_head, ast_subroutine):
@@ -320,6 +323,7 @@ class AssignExpression(TreeNode):
         self.child.sublings.append(rhs)
 
     def gencode(self, symbol_table, code):
+        code_start = len(code)
         
         if isinstance(self.dict['Rhs'], BinaryExpression):
             self.dict['Rhs'].gencode(symbol_table, code)
@@ -345,6 +349,7 @@ class AssignExpression(TreeNode):
                         offset = j
                             # print("level {}| offset {}".format(level, offset))
                         code.append(('STO', level, offset))
+                        # print(code[code_start:])
                         return 
                     else:
                         raise SemanticException("get type <{}>, but expect <var> in [Assign]".format(item[1]))
@@ -448,8 +453,10 @@ class DoWhileStatement(TreeNode):
         code_start = len(code)
         for stmt in self.dict['Statement']:
             stmt.gencode(symbol_table, code)
+        self.dict['Condition'].gencode(symbol_table, code)
         code.append(('JPC', 0, len(code) + 2))
         code.append(('JMP', 0, code_start))
+        print("DoWhile")
         print(code[code_start:])
         # exit()
 
@@ -521,10 +528,7 @@ class IOStatement(TreeNode):
             item, level, offset = symbol_table.search(arg_name)
             if iotype == 'write':
                 if item[1] != 'proc':
-                    if arg_name != last_args:
-                        # reduce code length by removing duplicated LOD
-                        code.append(('LOD', level, offset))
-                        last_args = arg_name
+                    code.append(('LOD', level, offset))
                     code.append(('WRT', 0, 0))
                 else:
                     raise SemanticException("get type <{}>, but expect <var> or <const> in write()".format(item[1]))

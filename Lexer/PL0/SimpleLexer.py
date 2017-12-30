@@ -152,6 +152,10 @@ class SimpleLexer(AbstractLexer):
                     self.sym = ""
                     self.peek = self.next_character()
                     continue
+                elif self.peek == '#':
+                    # TODO support for Comment
+                    while self.hasnext() and self.peek != '\n':
+                        self.peek = self.next_character_safe()
                 else:
                     break
             if str.isdigit(self.peek):

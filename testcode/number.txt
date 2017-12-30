@@ -1,0 +1,39 @@
+procedure p;
+var x,i,j,n,tem,a,sum,max;
+
+
+begin
+    x:=0;
+    sum:=1;
+    read(max);
+    while x<max  do
+    begin
+       x:=x+1;
+       n:=x/2;#(*============== 获取内除循环数===============*)
+       i:=1;
+       a:=1;#(*============== a=1表示x为素数===============*)
+       while i<=n  do
+       begin
+          i:=i+1;
+          j:=x/i;
+          tem:=j*i;
+          if tem=x then #(*==============判断是否除尽===============*)
+            begin
+            if x>3 then
+              begin
+               a:=-1
+              end
+          end
+       end;
+       if a=1 then
+       begin
+          write(x);
+          sum:=sum+x
+       end
+   end;
+   write(sum)
+end;
+
+begin
+call p
+end.

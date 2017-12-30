@@ -1,4 +1,4 @@
-const a=45,a=27;
+const a=45, b =27;
 var x,y,g,m;
 procedure swap;
     var temp;
@@ -6,9 +6,8 @@ procedure swap;
         temp := x ;
         x :=y;
         y:=temp
-    end;
-procedure swap;
-    x:=x-x/y*y;
+    end
+;
 begin
     x:=a;
     y:=b;

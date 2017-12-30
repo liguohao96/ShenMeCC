@@ -140,6 +140,7 @@ class PCodeVM(AbstractVM):
         pos = self.pos(*instruct[1:])
         # print("[{}] = [{}]".format(pos, self.esp))
         self.stack[pos] = self.stack[self.esp] # or -1
+        self.pop()
         self.eip = self.eip + 1
         
 
@@ -187,6 +188,7 @@ class PCodeVM(AbstractVM):
                 self.eip = int(instruct[2])
             else:
                 self.eip = self.eip + 1
+            self.pop()
 
     def READ(self, instruct):
         # (RED, level, offset)
@@ -204,13 +206,14 @@ class PCodeVM(AbstractVM):
                 self.stack[pos] = int(ipt)
                 read_done = True
             except:
-                pass
+                print('input error')
         self.eip = self.eip + 1
 
     def WRITE(self, instruct):
         # (WRT, 0, 0)
         # output stack top
         print(self.stack[self.esp]) # -1 is ok for representing the last one
+        self.pop()
         self.eip = self.eip + 1
 
     def initialize(self):
@@ -312,18 +315,25 @@ class PCodeVM(AbstractVM):
             if self.eip == self.mode['break_point']:
                 self.mode['debug'] = True
             
+            if self.mode['debug'] is True:
+                print("to excute [{}] {}".format(self.eip, self.code[self.eip]))
+                self.command_promt('n', '')
+
             instruct = self.code[self.eip]
             eip = self.eip
-            if self.mode['verbose'] is True or self.mode['debug'] is True:
+            self.instruct_excute(instruct)
+
+            if self.mode['debug'] is True:
+                print_instruct = self.instruct_human if self.instruct_human is not None else instruct
+                prt_str = 'instruction {}: {}\nstack {}\n eip :{}'.format(eip+1, print_instruct, self.stack, self.eip)
+                self.instruct_human = None
+                print(prt_str)
+
+            if self.mode['verbose'] is True and not self.mode['debug']:
                 print_instruct = self.instruct_human if self.instruct_human is not None else instruct
                 prt_str = '\tinstruction {}: {}\nstack {}\n eip :{}'.format(eip+1, print_instruct, self.stack, self.eip)
                 self.instruct_human = None
                 print(prt_str)
-            if self.mode['debug'] is True:
-                self.command_promt('n', '')
-
-            self.instruct_excute(instruct)
-
             self.exit = True if self.eip >= len(self.code) else False
             
             # print(self.stack)

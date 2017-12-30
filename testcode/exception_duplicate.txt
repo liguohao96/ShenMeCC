@@ -1,0 +1,16 @@
+const a=45,
+      a=27,
+      c1=1,
+      c2=2;
+var b,b,b,a;
+procedure print;
+    begin
+    a := 1;
+    write(c1)
+    end
+;
+procedure swap;
+    write(c2)
+;
+call swap
+.

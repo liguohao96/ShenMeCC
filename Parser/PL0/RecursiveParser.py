@@ -36,6 +36,9 @@ class RecursiveParser(AbstractParser):
         self.token = self.lexer.forward()
         try:
             anal_tree, syntax_tree = self.程序()
+            while self.lexer.hasnext():
+                print(self.lexer.forward())
+            print(self.lexer.hasnext())
             return anal_tree, syntax_tree
         except LexerException as ex:
             print(ex)
@@ -58,7 +61,7 @@ class RecursiveParser(AbstractParser):
             invalid_str = 'expected "{}", but get "{}", at line {}'.format(expected, self.token.value, self.lexer.line_index)
             raise SyntaxException("{}\n{}".format(invalid_str, pos_str))
         else:
-            raise SyntaxException('{}, missing "{}", at lien {}'.format('unexpected EOF!', expected, self.lexer.line_index))
+            raise SyntaxException('{}, missing "{}", at line {}'.format('unexpected EOF!', expected, self.lexer.line_index))
 
     def 程序(self):
         sub_tree = TreeNode('<程序>')

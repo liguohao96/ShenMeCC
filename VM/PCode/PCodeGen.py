@@ -13,13 +13,39 @@ class SymbolTable(object):
         else:
             self.block_sym.append(block)
     
-    def search(self, name):
+    def insert(self, table_item):
+        if len(table_item) >= 3:
+            name = table_item[0]
+            item, level, offset = self.search_safe(name)
+            if level == 0:
+                raise SemanticException('duplicate declaration of {}'.format(name))
+                # if item[1] == table_item[1]:
+                #     print('[WARNING] duplicate declaration of {}, overwriting'.format(name))
+                #     return offset
+                # else:
+                #     print('[WARNING] change type of {}, from <{}> to <{}>'.format(name, item[1], table_item[1]))
+                #     self.block_sym[-1].table[offset] = table_item
+                #     return offset
+                # self.block_sym[-1][offset] = table_item
+            else:
+                self.block_sym[-1].append(table_item)
+                return -1
+        else:
+            raise RuntimeError('table item must be at least 3')
+
+    def search_safe(self, name):
         block_chain_len = len(self.block_sym)
         for i in range(block_chain_len):
             block = self[block_chain_len - i - 1]
             for j, item in enumerate(block):
                 if item[0] == name:
                     return item, i, j
+        return None, -1, -1
+
+    def search(self, name):
+        item, level, offset = self.search_safe(name)
+        if item is not None:
+            return item, level, offset
         raise SemanticException('undefined reference {}'.format(name))
 
     def pop_block(self):

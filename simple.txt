@@ -1,8 +1,10 @@
-const c1 = 1, c2 = 20;#
+﻿const c1 = 1, c2 = 20;
+# const declaration
 var v1,v2,v3,你;
 procedure p1;
     var v1,x1;
     begin
+    # begin
     v1:=-c2+2*3+1;
     read(v1);
     v2 := v1;
@@ -33,5 +35,5 @@ begin
     call p1
 end
 .
-
+# xxx
 

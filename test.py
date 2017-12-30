@@ -8,6 +8,7 @@ from CompilerException import LexerException
 from Lexer.PL0 import SimpleLexer as PL0Lexer
 from Parser.PL0 import RecursiveParser as PL0Parser
 import argparse
+import chardet
 
 from VM import PCodeVM
 from VM import PCodeGener
@@ -41,11 +42,14 @@ def from_file(arg, file_name: str, grammer:str=None):
     parser = PL0Parser(lexer)
     if grammer is not None:
         parser.grammer_input(grammer)
-    file = open(file_name, 'r', encoding='utf-8')
+    file = open(file_name, 'rb')
+    encoding = chardet.detect(file.read())['encoding']
+    print(encoding)
+    file = open(file_name, 'r', encoding=encoding)
+    # print(file.read()[0].encode())
     lines = file.readlines()
     for line in lines:
         file_content += line
-    print(file_content[0].encode())
     anal_tree, syntax_tree = parser.parse(file_content)
     if syntax_tree is None:
         print('syntax error')
