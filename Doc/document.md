@@ -4,13 +4,13 @@ a simple and stupid compiler collection(just now for PL0, support for other lang
 
 ## __directory__
 
-- Lexer(#lexer)
+- [Lexer](#lexer)
     - [PL0](#lexerpl0)
-- Parser(#parser)
+- [Parser](#parser)
     - [PL0](#parserpl0)
-- DataStruct(#datastruct)
-    - [Tree](#datastructtree.py)
-    - [SyntaxTree.py](#datastructsyntaxtree.py)
+- [DataStruct](#datastruct)
+    - [Tree](#datastructtreepy)
+    - [SyntaxTree.py](#datastructsyntaxtreepy)
 - VM
 
 ### Lexer
