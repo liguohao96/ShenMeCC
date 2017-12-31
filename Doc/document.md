@@ -6,7 +6,7 @@ a simple and stupid compiler collection(just now for PL0, support for other lang
 
 - Lexer
     - PL0
-        - [SimpleLexer.py](plosimplelexer)
+        - [SimpleLexer.py](#pl0-simplelexer)
 - Parser
 - VM
 
