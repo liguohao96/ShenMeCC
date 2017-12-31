@@ -49,6 +49,7 @@ class SubRoutine(TreeNode):
             backfill_index = len(code) - 1
             self.dict['ProcDeclaration'].gencode(symbol_table, code)
             code[backfill_index][2] = len(code)
+            code[backfill_index] = tuple(code[backfill_index])
         self.dict['Statement'].gencode(symbol_table, code)
         symbol_table.pop_block()
 

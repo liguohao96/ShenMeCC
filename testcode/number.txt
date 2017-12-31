@@ -1,7 +1,5 @@
 procedure p;
 var x,i,j,n,tem,a,sum,max;
-
-
 begin
     x:=0;
     sum:=1;
